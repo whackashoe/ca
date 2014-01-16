@@ -1,0 +1,12 @@
+all current work in test/treet
+
+should merge it down once it surpasses current system / works
+
+is there any benefit to a non tree representation?
+
+is passing a lambda or passing a function pointer in the right design? I think that the api should allow for generic functions to be made, then selected at compiletime using maybe #define? I don't think lib design carries over well.
+
+Way to generalize spaces? 
+
+Way to generalize hash?
+
