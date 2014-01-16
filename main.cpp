@@ -702,10 +702,10 @@ void display_help(const std::map<std::string, NeighborRule> & built_in_rules)
 				<< "  -r					   set rule number or preset, see below for options (required)" << std::endl;
 
 	std::cout 	<< "Examples:" << std::endl
-				<< "  hdcas -s 3 -d 1 -g 128 -r 3374586492785" << std::endl
+				<< "  ./hardcash -s 3 -d 1 -g 128 -r 3374586492785 -p" << std::endl
 				<< "	  1 dimensional ternary cellular automaton with rule set and random input" << std::endl
 				<< std::endl
-				<< "  cat conway_input.txt | hdcas -2 -d 2 -g 128 -r ConwaysLife -i" << std::endl
+				<< "  cat conway_input.txt | ./hardcash -2 -d 2 -g 128 -r ConwaysLife -i -u" << std::endl
 				<< "	  run conways game of life on a grid of 128x128 with input from file" << std::endl
 				<< std::endl;
 
