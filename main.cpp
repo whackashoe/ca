@@ -21,7 +21,6 @@
 #include "inputparser.hpp"
 #include "glfw-ui.hpp"
 #include "color.hpp"
-#include "ndtree.hpp"
 
 
 #define VERSION 0.1
@@ -124,29 +123,6 @@ via some structured rules (e.g. 1 neighbor and state=0 = 1, 2 neighbor and state
 
 int main(int argc, char ** argv)
 {
-	/*auto m_dsizes = generate_grid_dimension_sizes(2, 3);
-	auto m_offsets = generate_moore_offsets(2, 3, m_dsizes);
-
-	std::vector<uint32_t> cells;
-	cells.resize(m_offsets.size());
-
-	std::vector<uint32_t> grid = {  0, 1, 2, 
-									3, 4, 5, 
-									6, 7, 8 };
-
-	get_moore_neighborhood(grid, cells, m_offsets, m_dsizes, 4);
-
-	std::cout << "=============" << std::endl;
-
-	for(const auto & i : cells) {
-		std::cout << i << std::endl;
-	}*/
-
-	NDTree tree;
-	tree.insertNode({0.1, 0.3}, 1);
-	
-	exit(1);
-
 	uint64_t milliseconds_since_epoch = std::chrono::duration_cast<std::chrono::milliseconds>
 											(std::chrono::system_clock::now().time_since_epoch()).count();
 	rng.seed(milliseconds_since_epoch);
