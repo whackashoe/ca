@@ -42,18 +42,18 @@ std::vector<uint32_t> iterate_builtin_ruleset(	const std::vector<uint32_t> & sou
 
 unsigned int compare_grid(const std::vector<int> & target, const std::vector<uint32_t> & src);
 
-/*std::vector<int> get_moore_neighborhood(const std::vector<uint32_t> & grid, 
+std::vector<int> get_moore_neighborhood(const std::vector<uint32_t> & grid, 
 										const uint32_t grid_size, 
 										const uint32_t dimension,
 										const uint32_t position);
-*/
 
+/*
 void get_moore_neighborhood(const std::vector<uint32_t> & grid, 
 							std::vector<uint32_t> & cells,
 							const std::vector<std::vector<int32_t>> & offsets,   
 							const std::vector<uint64_t> & grid_dimension_sizes,
 							const uint32_t position);
-
+*/
 std::vector<uint64_t> generate_grid_dimension_sizes(const uint32_t dimension, const uint32_t grid_size);
 std::vector<std::vector<int32_t>> generate_moore_offsets(	const uint32_t dimension,
 															const uint32_t grid_size,

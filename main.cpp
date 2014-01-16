@@ -267,13 +267,13 @@ int main(int argc, char ** argv)
 	}
 }
 
-std::vector<uint32_t> & iterate(const InputParser & input, 
+/*std::vector<uint32_t> & iterate(const InputParser & input, 
 								const std::vector<uint32_t> & ref,
 								std::map<std::string, NeighborRule> & built_in_rules)
 {
 	std::vector<uint32_t> ret;
 	return ret;
-}
+}*/
 
 std::vector<uint32_t> generate_rule(const uint64_t states,
 									const uint64_t dimension, 
@@ -328,9 +328,9 @@ std::vector<uint32_t> iterate_integer_ruleset(	const std::vector<uint32_t> & sou
 	std::vector<uint32_t> cur;
 	cur.resize(source.size());
 
-	//#pragma omp parallel for
-	//for(uint64_t i=0; i<cur.size(); i++)
-	//	cur[i] = rules[calc_rule_position_from_adjacent_cells(get_moore_neighborhood(source, grid_size, dimension, i), states)];
+	#pragma omp parallel for
+	for(uint64_t i=0; i<cur.size(); i++)
+		cur[i] = rules[calc_rule_position_from_adjacent_cells(get_moore_neighborhood(source, grid_size, dimension, i), states)];
 
 	return cur;
 }
@@ -344,16 +344,16 @@ std::vector<uint32_t> iterate_builtin_ruleset(	const std::vector<uint32_t> & sou
 	std::vector<uint32_t> cur;
 	cur.resize(source.size());
 
-	//#pragma omp parallel for
-	//for(uint64_t i=0; i<cur.size(); i++) {
-	//	auto cells = get_moore_neighborhood(source, grid_size, dimension, i);
-	//	uint64_t count = 0;
-	//	for(uint64_t j=0; j<cells.size(); ++j)
-	//		if(cells[j] > 0)
-	//			++count;
-//
-	//	cur[i] = rules.apply(source[i], count, states, dimension);
-	//}
+	#pragma omp parallel for
+	for(uint64_t i=0; i<cur.size(); i++) {
+		auto cells = get_moore_neighborhood(source, grid_size, dimension, i);
+		uint64_t count = 0;
+		for(uint64_t j=0; j<cells.size(); ++j)
+			if(cells[j] > 0)
+				++count;
+
+		cur[i] = rules.apply(source[i], count, states, dimension);
+	}
 
 	return cur;
 }
@@ -403,7 +403,7 @@ std::vector<std::vector<int32_t>> generate_moore_offsets(	const uint32_t dimensi
 	return offsets;
 }
 
-
+/*
 void get_moore_neighborhood(const std::vector<uint32_t> & grid, 
 							std::vector<uint32_t> & cells,
 							const std::vector<std::vector<int32_t>> & offsets,   
@@ -439,7 +439,7 @@ void get_moore_neighborhood(const std::vector<uint32_t> & grid,
 	}
 }
 
-/*
+*/
 std::vector<int32_t> get_moore_neighborhood(const std::vector<uint32_t> & grid, 
 											const uint32_t grid_size, 
 											const uint32_t dimension,
@@ -513,7 +513,7 @@ std::vector<int32_t> get_moore_neighborhood(const std::vector<uint32_t> & grid,
 	traverse(position, dimension);
 
 	return cells;
-}*/
+}
 
 /*
 std::vector<int32_t> get_vonneumann_neighborhood(	const std::vector<uint32_t> & grid, 
