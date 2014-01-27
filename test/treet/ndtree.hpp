@@ -33,12 +33,12 @@ would be very useful for high dimensional simulations
  * 
  ****************************************/
 
-template <uint Dimension>
+template <uint Dimension, typename StateType>
 class NDTree {
 public:
 	std::array<NDTree*, cexp::pow(2, Dimension)> nodes;
 	NDTree * parent;
-	uint state;
+	StateType state;
 	uint position; //position in parents node list
 	bool leaf;
 
@@ -77,18 +77,18 @@ public:
 
 	std::string stringifyNodes(const int n=0) const
 	{
-		std::string m;
+		std::stringstream m;
 
 		if(!leaf)
 			for(const auto & i : nodes)
-				m += i->stringifyNodes(n+1);
+				m << i->stringifyNodes(n+1);
 		else
-			m += state + '0';
+			m << state;
 		
 		switch(n % 3) {
-			case 0: return ("(" + m + ")"); break;
-			case 1: return ("[" + m + "]"); break;
-			case 2: return ("{" + m + "}"); break;
+			case 0: return ("(" + m.str() + ")"); break;
+			case 1: return ("[" + m.str() + "]"); break;
+			case 2: return ("{" + m.str() + "}"); break;
 		}
 
 		return 0;
@@ -133,7 +133,7 @@ public:
 			return up_flag;
 		};
 
-		NDTree<Dimension> * treePointer = const_cast<NDTree *>(this);
+		NDTree<Dimension, StateType> * treePointer = const_cast<NDTree *>(this);
 		do {
 			if(!walk(treePointer->position)) break;
 			pointing_direction = stack.back();
@@ -208,7 +208,7 @@ public:
 	void reverseBirth(uint position)
 	{
 		assert(parent == nullptr);
-		parent = new NDTree<Dimension>();
+		parent = new NDTree<Dimension, StateType>();
 		parent->subdivide();
 		parent->nodes[position] = this;
 		parent->leaf = false;
@@ -264,31 +264,31 @@ std::array<std::array<orientation, Dimension>, cexp::pow(2, Dimension)> generate
 	return r;
 }
 
-template <uint Dimension>
+template <uint Dimension, typename StateType>
 std::array<uint, cexp::pow(2, Dimension)> generateNodePositionTable()
 {	/*calculates the position / index of each node based on its orientation*/
 	std::array<uint, cexp::pow(2, Dimension)> r;
 	
 	for(uint i=0; i < r.size(); ++i)
-		r[i] = NDTree<Dimension>::getPositionFromOrientation<Dimension>(NDTree<Dimension>::node_orientation_table[i]);
+		r[i] = NDTree<Dimension, StateType>::getPositionFromOrientation<Dimension>(NDTree<Dimension, StateType>::node_orientation_table[i]);
 
 	return r;
 }
 
 
-template <uint Dimension>
+template <uint Dimension, typename StateType>
 std::array<std::array<orientation, Dimension>, cexp::pow(3, Dimension)> generateMooreOffsetTable()
 {	/*calculates an offset from center of each node in each dimension (center of hypercube of length 3)*/
 	std::array<std::array<orientation, Dimension>, cexp::pow(3, Dimension)> r;
 
-	NDTree<Dimension>::moore_pow_table = generatePowTable<Dimension, 3>();
+	NDTree<Dimension, StateType>::moore_pow_table = generatePowTable<Dimension, 3>();
 
 	for(uint i=0; i < r.size(); ++i) {
 		for(uint j=0; j < Dimension; ++j) {
-			const int moore_mod = i % NDTree<Dimension>::moore_pow_table[j+1];
-			if(moore_mod < NDTree<Dimension>::moore_pow_table[j+1]-(NDTree<Dimension>::moore_pow_table[j]*2))
+			const int moore_mod = i % NDTree<Dimension, StateType>::moore_pow_table[j+1];
+			if(moore_mod < NDTree<Dimension, StateType>::moore_pow_table[j+1]-(NDTree<Dimension, StateType>::moore_pow_table[j]*2))
 				r[r.size()-1-i][j] = RIGHT;
-			else if(moore_mod < NDTree<Dimension>::moore_pow_table[j+1]-NDTree<Dimension>::moore_pow_table[j])
+			else if(moore_mod < NDTree<Dimension, StateType>::moore_pow_table[j+1]-NDTree<Dimension, StateType>::moore_pow_table[j])
 				r[r.size()-1-i][j] = CENTER;
 			else
 				r[r.size()-1-i][j] = LEFT;
@@ -298,7 +298,7 @@ std::array<std::array<orientation, Dimension>, cexp::pow(3, Dimension)> generate
 	return r;
 }
 
-template <uint Dimension>
+template <uint Dimension, typename StateType>
 std::array<std::array<TraversalDirection<Dimension>, cexp::pow(3, Dimension)>, cexp::pow(2, Dimension)> generateMooreNeighborTable()
 {	/*calculate offset via overlaying a moore 3 length hypercubes center over each position of the base nodes(hypercube)
 	 and calculating the offset including if we need to go up one level(parent) to access adjacent node*/
@@ -310,8 +310,8 @@ std::array<std::array<TraversalDirection<Dimension>, cexp::pow(3, Dimension)>, c
 			TraversalDirection<Dimension> tdir;
 
 			for(uint d=0; d < Dimension; ++d) {
-				if(NDTree<Dimension>::node_orientation_table[c][d] == LEFT) {
-					switch(NDTree<Dimension>::moore_offset_table[m][d]) {
+				if(NDTree<Dimension, StateType>::node_orientation_table[c][d] == LEFT) {
+					switch(NDTree<Dimension, StateType>::moore_offset_table[m][d]) {
 						case LEFT:
 							tdir.parent_direction[d] = LEFT;
 							tdir.node += cexp::pow(2, d);
@@ -321,7 +321,7 @@ std::array<std::array<TraversalDirection<Dimension>, cexp::pow(3, Dimension)>, c
 						default: /*todo:: add bad memory error handling*/ break;
 					}
 				} else {
-					switch(NDTree<Dimension>::moore_offset_table[m][d]) {
+					switch(NDTree<Dimension, StateType>::moore_offset_table[m][d]) {
 						case LEFT: tdir.node += cexp::pow(2, d); break;
 						case RIGHT:
 							tdir.parent_direction[d] = RIGHT;
@@ -348,28 +348,28 @@ std::array<std::array<TraversalDirection<Dimension>, cexp::pow(3, Dimension)>, c
 
 //template <uint Dimension>
 //std::array<std::array<uint,  Dimension>, cexp::pow(2, Dimension)>
-//NDTree<Dimension>::binary_mod_table = generateModTable<Dimension, 2>();
+//NDTree<Dimension, StateType>::binary_mod_table = generateModTable<Dimension, 2>();
 
 //initialized in generate_moore_offset_table due to compiler running these out of order
-template <uint Dimension>
+template <uint Dimension, typename StateType>
 std::array<uint, Dimension+1>
-NDTree<Dimension>::moore_pow_table = generatePowTable<Dimension, 3>();
+NDTree<Dimension, StateType>::moore_pow_table = generatePowTable<Dimension, 3>();
 
-template <uint Dimension>
+template <uint Dimension, typename StateType>
 std::array<std::array<orientation, Dimension>, cexp::pow(2, Dimension)> 
-NDTree<Dimension>::node_orientation_table = generateNodeOrientationTable<Dimension>();
+NDTree<Dimension, StateType>::node_orientation_table = generateNodeOrientationTable<Dimension>();
 
-template <uint Dimension>
+template <uint Dimension, typename StateType>
 std::array<uint, cexp::pow(2, Dimension)>
-NDTree<Dimension>::node_position_table = generateNodePositionTable<Dimension>();
+NDTree<Dimension, StateType>::node_position_table = generateNodePositionTable<Dimension, StateType>();
 
 
-template <uint Dimension>
+template <uint Dimension, typename StateType>
 std::array<std::array<orientation, Dimension>, cexp::pow(3, Dimension)>
-NDTree<Dimension>::moore_offset_table = generateMooreOffsetTable<Dimension>();
+NDTree<Dimension, StateType>::moore_offset_table = generateMooreOffsetTable<Dimension, StateType>();
 
-template <uint Dimension>
+template <uint Dimension, typename StateType>
 std::array<std::array<TraversalDirection<Dimension>, cexp::pow(3, Dimension)>, cexp::pow(2, Dimension)>
-NDTree<Dimension>::moore_neighbor_table = generateMooreNeighborTable<Dimension>();
+NDTree<Dimension, StateType>::moore_neighbor_table = generateMooreNeighborTable<Dimension, StateType>();
 
 #endif

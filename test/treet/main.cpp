@@ -5,7 +5,7 @@
 
 int main() {
 	const uint Dimension = 2;
-	NDTree<Dimension> tree;
+	NDTree<Dimension, uint> tree;
 	tree.subdivide();
 	for(auto & i : tree.nodes)
 		i->subdivide();
@@ -17,7 +17,7 @@ int main() {
 	direction[0] = RIGHT;
 	direction[1] = CENTER;
 	
-	NDTree<Dimension> * result = tree.nodes[3]->nodes[0]->getAdjacentNode(direction);
+	NDTree<Dimension, uint> * result = tree.nodes[3]->nodes[0]->getAdjacentNode(direction);
 	std::cout << "state " << result->state << std::endl;
 	std::cout << "position ";
 	while(result->parent != nullptr) {
@@ -29,7 +29,7 @@ int main() {
 	std::cout << tree << std::endl;
 
 	//exit(1);
-	std::cout << "NODE_ORIENTATION_TABLE" << std::endl << NDTree<Dimension>::node_orientation_table << std::endl;
+	std::cout << "NODE_ORIENTATION_TABLE" << std::endl << NDTree<Dimension, uint>::node_orientation_table << std::endl;
 	//std::cout << "MOORE_POW_TABLE" << std::endl << NDTree<Dimension>::moore_pow_table << std::endl;
 	//std::cout << "MOORE_OFFSET_TABLE" << std::endl << NDTree<Dimension>::moore_offset_table << std::endl;
 	//std::cout << "NEIGHBOR_TABLE" << std::endl << NDTree<Dimension>::moore_neighbor_table << std::endl;
