@@ -5,6 +5,7 @@
 #include <vector>
 #include <array>
 #include <algorithm>
+#include <queue>
 #include <memory>
 #include <string>
 #include <sstream>
@@ -16,8 +17,8 @@
 
 //#include "ndhash.hpp"
 #include "cexp.hpp"
-#include "lest.hpp"
-
+#include "orientation.hpp"
+#include "traversaldirection.hpp"
 
 /*
 option to switch between pointerless (trade much higher computation for much less memory)
@@ -25,70 +26,6 @@ and pointer based (much higher memory, much less computation)
 would be very useful for high dimensional simulations
 */
 
-/****************************************
- *
- * BASIC HELPER STRUCTURES
- * 
- ****************************************/
-
-enum orientation : signed int {LEFT = -1, CENTER = 0, RIGHT = 1};
-std::ostream& operator<< (std::ostream &stream, const orientation &obj)
-{
-	return stream << ((obj == LEFT) ? "LEFT" : (obj == CENTER) ? "CENTER" : (obj == RIGHT) ? "RIGHT" : "BAD_VAL");
-}
-
-template <uint Dimension>
-struct TraversalDirection {
-	std::array<orientation, Dimension> parent_direction {}; //direction one level up from cube-node
-	int node {0}; //node in cube
-
-	bool operator==(TraversalDirection<Dimension> rhs) const
-	{
-		for(uint i=0; i<Dimension; ++i)
-			if(parent_direction[i] != rhs.parent_direction[i]) return false;
-
-		if(node != rhs.node) return false;
-
-		return true;
-	}
-
-	friend std::ostream& operator<< (std::ostream &stream, const TraversalDirection &obj)
-	{
-		return stream << "(" << obj.node << " :: " << obj.parent_direction << ")";
-	}
-};
-
-/****************************************
- *
- * BASIC HELPER FUNCTIONS
- * 
- ****************************************/
-
-template <uint Dimension>
-std::array<orientation, Dimension> getOrientationFromPosition(const uint position)
-{
-	std::array<orientation, Dimension> r;
-	
-	for(uint i = 0; i < Dimension; ++i)
-		if(position % cexp::pow(2, i+1) < cexp::pow(2, i))
-			r[i] = LEFT;
-		else
-			r[i] = RIGHT;
-
-	return r;
-}
-
-template <uint Dimension>
-uint getPositionFromOrientation(const std::array<orientation, Dimension> orientation)
-{
-	uint r { 0 };
-	
-	for(uint i = 0; i < Dimension; ++i)
-		if(orientation[i] == RIGHT) 
-			r += cexp::pow(2, i);
-	
-	return r;
-}
 
 /****************************************
  *
@@ -102,7 +39,7 @@ public:
 	std::array<NDTree*, cexp::pow(2, Dimension)> nodes;
 	NDTree * parent;
 	uint state;
-	uint position;
+	uint position; //position in parents node list
 	bool leaf;
 
 	std::vector<NDTree*> getParents(const NDTree * node) const
@@ -127,7 +64,7 @@ public:
 	static std::array<uint, cexp::pow(2, Dimension)> node_position_table;
 
 
-	NDTree() : position(0), leaf(true) {}
+	NDTree() : parent(nullptr), position(0), leaf(true) {}
 
 	NDTree(NDTree * parent_, const uint position_) : parent(parent_), position(position_), leaf(true) {}
 	
@@ -146,7 +83,7 @@ public:
 			for(const auto & i : nodes)
 				m += i->stringifyNodes(n+1);
 		else
-			m += ".";
+			m += state + '0';
 		
 		switch(n % 3) {
 			case 0: return ("(" + m + ")"); break;
@@ -161,46 +98,67 @@ public:
 		return stream << obj.stringifyNodes();
 	}
 
-	NDTree * getAdjacentNode(const TraversalDirection<Dimension> direction) const
+	NDTree * getAdjacentNode(const std::array<orientation, Dimension> direction) const
 	{
-		//check if we have to move up again to go over to the side in some way (loop this)
-		//once top is found we go in reverse: all offsets need to be read back in reverse order
+		std::queue<std::array<orientation, Dimension>> stack; //holds our directions for going up and down the tree
 
-	/*	direction = LEFT, CENTER
-		position = LEFT, LEFT
-		parent->direction = right
-		go to parent->*/
-		auto orientation = getOrientationFromPosition<Dimension>(position); //nodes orientation
+		std::array<orientation, Dimension> pointing_direction = direction; 
+		auto walk = [&](const uint position) {
+			bool up_flag = false;
 
-		for(uint d=0; d < Dimension; ++d) {
-			if(direction.parent_direction[d] == CENTER) continue;
+			for(uint d=0; d < Dimension; ++d) {
+				if(pointing_direction[d] == CENTER) continue;
 
-			if(direction.parent_direction[d] == LEFT) {
-				if(node_orientation_table[parent->position][d] == LEFT) {
-					
-				} else {
-					
-				}
-			} else {
-				if(node_orientation_table[position][d] == LEFT) {
-					if(node_orientation_table[parent->position][d] == LEFT) {
-						//move up
-					}
-					else if(node_orientation_table[parent->position][d] == RIGHT) {
-						//ok
+				if(pointing_direction[d] == LEFT) {
+					if(node_orientation_table[position][d] == LEFT) {
+						up_flag = true;
+						pointing_direction[d] = RIGHT;
 					}
 				} else {
-					if(node_orientation_table[parent->position][d] == LEFT) {
-						//ok
-					}
-					else if(node_orientation_table[parent->position][d] == RIGHT) {
-						//move up
+					if(node_orientation_table[position][d] == RIGHT) {
+						up_flag = true;
+						pointing_direction[d] = LEFT;
 					}
 				}
 			}
+
+			std::array<orientation, Dimension> results;
+			for(uint i=0; i<pointing_direction.size(); ++i) {
+				const auto m = pointing_direction[i] + node_orientation_table[position][i];
+				results[i] = static_cast<orientation>(m == CENTER ? node_orientation_table[position][i] : m);
+			}
+			stack.push(results);
+			std::cout << results << std::endl;
+
+			return up_flag;
+		};
+
+		NDTree<Dimension> * treePointer = const_cast<NDTree *>(this);
+		do {
+			if(!walk(treePointer->position)) break;
+			pointing_direction = stack.back();
+			
+			//if parent is nullptr we need to "expand" upwards by creating a new NDTree for the parent,
+			if(treePointer->parent == nullptr)
+				treePointer->reverseBirth(position);
+			
+			treePointer = treePointer->parent;
+		} while(true);
+
+		//walk back down to our node
+		while(!stack.empty()) {
+			std::cout << treePointer->position << std::endl;
+			if(treePointer->leaf)
+				return treePointer;
+
+			auto m = stack.back();
+			//ugly, fix with std::negate overload for orientation when available
+			std::transform(m.begin(), m.end(), m.begin(), [](orientation o) { return static_cast<orientation>(static_cast<signed int>(o)); });
+			treePointer = treePointer->nodes[getPositionFromOrientation<Dimension>(m)];
+			stack.pop();
 		}
 
-		return nodes[direction.node];
+		return treePointer;
 	}
 
 	void insertNode(const std::array<double, Dimension> pos, const uint depth_precision)
@@ -245,6 +203,15 @@ public:
 		if(leaf) return;
 		nodes.clear();
 		leaf = true;
+	}
+
+	void reverseBirth(uint position)
+	{
+		assert(parent == nullptr);
+		parent = new NDTree<Dimension>();
+		parent->subdivide();
+		parent->nodes[position] = this;
+		parent->leaf = false;
 	}
 
 	void calculateHash()
@@ -405,69 +372,4 @@ template <uint Dimension>
 std::array<std::array<TraversalDirection<Dimension>, cexp::pow(3, Dimension)>, cexp::pow(2, Dimension)>
 NDTree<Dimension>::moore_neighbor_table = generateMooreNeighborTable<Dimension>();
 
-/****************************************
- *
- * UNIT TESTING SPECIFICATION
- * 
- ****************************************/
-
-const lest::test specification[] =
-{
-	"Brand new tree should be a leaf", []
-	{
-		EXPECT( NDTree<1>().leaf );
-	},
-	"moore pow table is incorrect", []
-	{
-		auto m = NDTree<2>::moore_pow_table;
-		m = {1, 3, 9};
-		EXPECT( NDTree<2>::moore_pow_table == m )
-	},
-	"node orientation table is incorrect", []
-	{
-		auto m = NDTree<2>::node_orientation_table;
-		m = {{{LEFT, LEFT}, {RIGHT, LEFT}, {LEFT, RIGHT}, {RIGHT, RIGHT}}};
-		EXPECT( NDTree<2>::node_orientation_table == m )
-	},
-	"moore offset table is incorrect", []
-	{
-		auto m = NDTree<2>::moore_offset_table;
-		m = {{{LEFT, LEFT }, {CENTER, LEFT }, {RIGHT, LEFT}, {LEFT, CENTER}, {CENTER, CENTER}, {RIGHT, CENTER}, {LEFT, RIGHT}, {CENTER, RIGHT}, {RIGHT, RIGHT}}};
-		EXPECT( NDTree<2>::moore_offset_table == m)
-	},
-	"moore neighborhood table is incorrect", []
-	{
-		auto m = NDTree<1>::moore_neighbor_table;
-		m[0][0].parent_direction[0] = LEFT;   m[0][0].node = 1;
-		m[0][1].parent_direction[0] = CENTER; m[0][1].node = 0;
-		m[0][2].parent_direction[0] = CENTER; m[0][2].node = 1;
-		m[1][0].parent_direction[0] = CENTER;   m[1][0].node = 1;
-		m[1][1].parent_direction[0] = CENTER; m[1][1].node = 0;
-		m[1][2].parent_direction[0] = RIGHT; m[1][2].node = 1;
-
-		EXPECT( NDTree<1>::moore_neighbor_table == m )
-	},
-	"subdivide turns tree into non leaf", []
-	{
-		NDTree<1> tree;
-		tree.subdivide();
-
-		EXPECT( !tree.leaf )
-	},
-	"position does not correspond with orientation", []
-	{
-		EXPECT( getPositionFromOrientation<2>({RIGHT, LEFT}) == 1 );
-	},
-	"orientation does not correspond with position", []
-	{
-		auto m = getOrientationFromPosition<2>(1);
-		m = {RIGHT, LEFT};
-		EXPECT( getOrientationFromPosition<2>(1) == m );
-	}
-};
-
-int run_unit_tests()
-{
-	return lest::run( specification );
-}
 #endif

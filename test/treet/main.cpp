@@ -1,20 +1,35 @@
 #include "ndtree.hpp"
 #include "prettyprint.hpp"
+#include "unittest.hpp"
+
 
 int main() {
-	const uint Dimension = 5;
+	const uint Dimension = 2;
 	NDTree<Dimension> tree;
-	for(uint j=0; j<100000; j++) {
-		NDTree<Dimension> * t = &tree;
-		for(uint i=0; i<100000; ++i) {
-			t->subdivide();
-			t = t->nodes[i%10];
-		}
+	tree.subdivide();
+	for(auto & i : tree.nodes)
+		i->subdivide();
+
+	tree.nodes[2]->nodes[1]->state = 1;
+	std::cout << tree << std::endl;
+
+	std::array<orientation, Dimension> direction;
+	direction[0] = RIGHT;
+	direction[1] = CENTER;
+	
+	NDTree<Dimension> * result = tree.nodes[3]->nodes[0]->getAdjacentNode(direction);
+	std::cout << "state " << result->state << std::endl;
+	std::cout << "position ";
+	while(result->parent != nullptr) {
+		std::cout << result->position << " ";
+		result = result->parent;
 	}
-	//std::cout << tree << std::endl;
+	std::cout << std::endl;
+
+	std::cout << tree << std::endl;
 
 	//exit(1);
-	//std::cout << "NODE_ORIENTATION_TABLE" << std::endl << NDTree<Dimension>::node_orientation_table << std::endl;
+	std::cout << "NODE_ORIENTATION_TABLE" << std::endl << NDTree<Dimension>::node_orientation_table << std::endl;
 	//std::cout << "MOORE_POW_TABLE" << std::endl << NDTree<Dimension>::moore_pow_table << std::endl;
 	//std::cout << "MOORE_OFFSET_TABLE" << std::endl << NDTree<Dimension>::moore_offset_table << std::endl;
 	//std::cout << "NEIGHBOR_TABLE" << std::endl << NDTree<Dimension>::moore_neighbor_table << std::endl;
