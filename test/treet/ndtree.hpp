@@ -36,10 +36,10 @@ would be very useful for high dimensional simulations
 template <uint Dimension, typename StateType>
 class NDTree {
 public:
-	std::array<NDTree*, cexp::pow(2, Dimension)> nodes;
+	std::array<NDTree*, cexp::pow(2, Dimension)> * nodes;
 	NDTree * parent;
 	StateType state;
-	uint position; //position in parents node list
+	char position; //position in parents node list
 	bool leaf;
 
 	std::vector<NDTree*> getParents(const NDTree * node) const
@@ -64,31 +64,43 @@ public:
 	static std::array<uint, cexp::pow(2, Dimension)> node_position_table;
 
 
-	NDTree() : parent(nullptr), position(0), leaf(true) {}
+	NDTree() : 
+		nodes(new std::array<NDTree*, cexp::pow(2, Dimension)>), 
+		parent(nullptr), 
+		position(0), 
+		leaf(true) {}
 
-	NDTree(NDTree * parent_, const uint position_) : parent(parent_), position(position_), leaf(true) {}
+	NDTree(NDTree * parent_, const uint position_) :
+		nodes(new std::array<NDTree*, cexp::pow(2, Dimension)>), 
+		parent(parent_), 
+		position(position_), 
+		leaf(true) {}
 	
 	~NDTree()
 	{
 		if(!leaf)
-			for(auto & i : nodes)
+			for(auto & i : (*nodes))
 				delete i;
 	}
+
+	NDTree(const NDTree & tree) { /*todo copy */ }
+	NDTree & operator=(const NDTree & tree) { /* todo assignment */ }
 
 	std::string stringifyNodes(const int n=0) const
 	{
 		std::stringstream m;
 
 		if(!leaf)
-			for(const auto & i : nodes)
+			for(const auto & i : (*nodes))
 				m << i->stringifyNodes(n+1);
 		else
 			m << state;
 		
-		switch(n % 3) {
+		switch(n % 4) {
 			case 0: return ("(" + m.str() + ")"); break;
 			case 1: return ("[" + m.str() + "]"); break;
 			case 2: return ("{" + m.str() + "}"); break;
+			case 3: return ("<" + m.str() + ">"); break;
 		}
 
 		return 0;
@@ -154,7 +166,7 @@ public:
 			auto m = stack.back();
 			//ugly, fix with std::negate overload for orientation when available
 			std::transform(m.begin(), m.end(), m.begin(), [](orientation o) { return static_cast<orientation>(static_cast<signed int>(o)); });
-			treePointer = treePointer->nodes[getPositionFromOrientation<Dimension>(m)];
+			treePointer = (*(*treePointer).nodes)[getPositionFromOrientation<Dimension>(m)];
 			stack.pop();
 		}
 
@@ -179,7 +191,7 @@ public:
 				}
 
 			std::cout << "depth: " << i << " cell pos: " << cell_pos << std::endl;
-			node = node->nodes[cell_pos];
+			node = (*(*node).nodes)[cell_pos];
 		}
 	}
 
@@ -193,7 +205,7 @@ public:
 		if(!leaf) return;
 
 		for(uint i=0; i < cexp::pow(2, Dimension); ++i)
-			nodes[i] = new NDTree(this, i);
+			(*nodes)[i] = new NDTree(this, i);
 
 		leaf = false;
 	}
@@ -201,7 +213,7 @@ public:
 	void collapse()
 	{
 		if(leaf) return;
-		nodes.clear();
+		(*nodes).clear();
 		leaf = true;
 	}
 
@@ -210,7 +222,7 @@ public:
 		assert(parent == nullptr);
 		parent = new NDTree<Dimension, StateType>();
 		parent->subdivide();
-		parent->nodes[position] = this;
+		(*(*parent).nodes)[position] = this;
 		parent->leaf = false;
 	}
 
