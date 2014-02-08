@@ -86,40 +86,44 @@ public:
 	NDTree(const NDTree & tree) { /*todo copy */ }
 	NDTree & operator=(const NDTree & tree) { /* todo assignment */ }
 
-	NDTree const operator[](const int i) const
+	/* get node value */
+	NDTree const &operator[](const int i) const
 	{
 		assert("array access out of bounds" && i >= 0 && i < cexp::pow(2, Dimension));
 		return (*(*nodes)[i]);
 	}
 
+	/* set node value */
 	NDTree &operator[](const int i)
 	{
 		assert("array access out of bounds" && i >= 0 && i < cexp::pow(2, Dimension));
 		return (*(*nodes)[i]);
 	}
 
-	std::string stringifyNodes(const int n=0) const
+	/* we can pretty print our tree out*/
+	friend std::ostream& operator<< (std::ostream &stream, const NDTree &obj)
 	{
-		std::stringstream m;
+		std::function<std::string(const int, const NDTree &)> stringifyNodes = [&](const int n, const NDTree & obj)
+		{
+			std::stringstream m;
 
-		if(!leaf)
-			for(const auto & i : (*nodes))
-				m << i->stringifyNodes(n+1);
-		else
-			m << static_cast<int>(state);
-		
-		switch(n % 4) {
-			case 0: return ("(" + m.str() + ")"); break;
-			case 1: return ("[" + m.str() + "]"); break;
-			case 2: return ("{" + m.str() + "}"); break;
-			case 3: return ("<" + m.str() + ">"); break;
-		}
+			if(!obj.leaf)
+				for(int i=0; i<cexp::pow(2, Dimension); ++i)
+					m << stringifyNodes(n+1, obj[i]);
+			else
+				m << static_cast<int>(obj.state);
+			
+			switch(n % 4) {
+				case 0: return ("(" + m.str() + ")"); break;
+				case 1: return ("[" + m.str() + "]"); break;
+				case 2: return ("{" + m.str() + "}"); break;
+				case 3: return ("<" + m.str() + ">"); break;
+			}
 
-		return 0;
-	}
-	
-	friend std::ostream& operator<< (std::ostream &stream, const NDTree &obj) {
-		return stream << obj.stringifyNodes();
+			return std::string();
+		};
+
+		return stream << stringifyNodes(0, obj);
 	}
 
 	NDTree * getAdjacentNode(const std::array<orientation, Dimension> direction) const
