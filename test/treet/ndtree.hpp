@@ -86,6 +86,18 @@ public:
 	NDTree(const NDTree & tree) { /*todo copy */ }
 	NDTree & operator=(const NDTree & tree) { /* todo assignment */ }
 
+	NDTree const operator[](const int i) const
+	{
+		assert("array access out of bounds" && i >= 0 && i < cexp::pow(2, Dimension));
+		return (*(*nodes)[i]);
+	}
+
+	NDTree &operator[](const int i)
+	{
+		assert("array access out of bounds" && i >= 0 && i < cexp::pow(2, Dimension));
+		return (*(*nodes)[i]);
+	}
+
 	std::string stringifyNodes(const int n=0) const
 	{
 		std::stringstream m;
@@ -94,7 +106,7 @@ public:
 			for(const auto & i : (*nodes))
 				m << i->stringifyNodes(n+1);
 		else
-			m << state;
+			m << static_cast<int>(state);
 		
 		switch(n % 4) {
 			case 0: return ("(" + m.str() + ")"); break;
