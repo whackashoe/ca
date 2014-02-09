@@ -5,31 +5,40 @@
 
 int main() {
 	const uint Dimension = 2;
-	NDTree<Dimension, uint> tree;
-	tree.subdivide();
-	for(auto & i : tree.nodes)
-		i->subdivide();
-
-	tree.nodes[2]->nodes[1]->state = 1;
-	std::cout << tree << std::endl;
-
-	std::array<orientation, Dimension> direction;
-	direction[0] = RIGHT;
-	direction[1] = CENTER;
+	NDTree<Dimension, char> tree;
 	
-	NDTree<Dimension, uint> * result = tree.nodes[3]->nodes[0]->getAdjacentNode(direction);
-	std::cout << "state " << result->state << std::endl;
+	tree.subdivide();
+	for(int i=0; i<tree.size(); i++)
+		tree[i].subdivide();
+
+	for(int y=0; y<cexp::pow(2, Dimension); y++) {
+		for(int x=0; x<cexp::pow(2, Dimension); x++) {
+			tree[y][x].state = ((y)*10)+(x);
+		}
+	}
+
+	std::cout << tree <<std::endl;
+
+	/* incorrect results:
+	[3][0]{ RIGHT, LEFT }
+	[0][0]{ LEFT, LEFT }
+
+	*/
+
+	NDTree<Dimension, char> * result = tree[3][0].getAdjacentNode({ RIGHT, LEFT });
+
+	
+	std::cout << "state " << (int) result->state << std::endl;
 	std::cout << "position ";
+
 	while(result->parent != nullptr) {
-		std::cout << result->position << " ";
+		std::cout << (int) result->position << " ";
 		result = result->parent;
 	}
 	std::cout << std::endl;
 
-	std::cout << tree << std::endl;
-
 	//exit(1);
-	std::cout << "NODE_ORIENTATION_TABLE" << std::endl << NDTree<Dimension, uint>::node_orientation_table << std::endl;
+	//std::cout << "NODE_ORIENTATION_TABLE" << std::endl << NDTree<Dimension, uint>::node_orientation_table << std::endl;
 	//std::cout << "MOORE_POW_TABLE" << std::endl << NDTree<Dimension>::moore_pow_table << std::endl;
 	//std::cout << "MOORE_OFFSET_TABLE" << std::endl << NDTree<Dimension>::moore_offset_table << std::endl;
 	//std::cout << "NEIGHBOR_TABLE" << std::endl << NDTree<Dimension>::moore_neighbor_table << std::endl;
