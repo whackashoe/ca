@@ -13,12 +13,15 @@
 #include <cassert>
 #include <cmath>
 #include <cstdint>
+#include <utility>
+#include <numeric>
 #include "prettyprint.hpp"
 
 //#include "ndhash.hpp"
 #include "cexp.hpp"
 #include "orientation.hpp"
 #include "traversaldirection.hpp"
+#include "traversalhelper.hpp"
 
 /*
 option to switch between pointerless (trade much higher computation for much less memory)
@@ -66,16 +69,44 @@ public:
 
 	NDTree() : 
 		nodes(new std::array<NDTree*, cexp::pow(2, Dimension)>), 
-		parent(nullptr), 
-		position(0), 
+		parent(nullptr),
+		position(0),
 		leaf(true) {}
 
 	NDTree(NDTree * parent_, const uint position_) :
-		nodes(new std::array<NDTree*, cexp::pow(2, Dimension)>), 
-		parent(parent_), 
-		position(position_), 
+		nodes(new std::array<NDTree*, cexp::pow(2, Dimension)>),
+		parent(parent_),
+		position(position_),
 		leaf(true) {}
 	
+	//copy constructor
+	NDTree(const NDTree & rhs) :
+		parent(rhs.parent),
+		state(rhs.state),
+		position(rhs.position),
+		leaf(rhs.leaf)
+	{
+		if(!rhs.leaf)
+			nodes = rhs.nodes;
+	}
+
+
+	//move constructor
+	NDTree(NDTree && rhs) :
+		parent(std::move(rhs.parent)),
+		state(std::move(rhs.state)),
+		position(std::move(rhs.position)),
+		leaf(std::move(rhs.leaf))
+	{
+		rhs.parent = nullptr;
+		if(!rhs.leaf) {
+			nodes = std::move(rhs.nodes);
+			rhs.nodes = nullptr;
+		}
+
+	}
+
+	//destructor
 	~NDTree()
 	{
 		if(!leaf)
@@ -83,8 +114,46 @@ public:
 				delete i;
 	}
 
-	NDTree(const NDTree & tree) { /*todo copy */ }
-	NDTree & operator=(const NDTree & tree) { /* todo assignment */ }
+	// assignment
+	NDTree const & operator=(NDTree & rhs)
+	{
+		if(!rhs.leaf)
+			nodes = rhs.nodes;
+
+		parent   = rhs.parent;
+		state    = rhs.state;
+		position = rhs.position;
+		leaf     = rhs.leaf;
+
+		return (*this);
+	}
+
+	NDTree const & operator=(const NDTree & rhs)
+	{
+		if(!rhs.leaf)
+			nodes = rhs.nodes;
+
+		parent   = rhs.parent;
+		state    = rhs.state;
+		position = rhs.position;
+		leaf     = rhs.leaf;
+
+		return (*this);
+	}
+
+	//pointerized assignment
+	NDTree const & operator=(const NDTree * rhs)
+	{
+		if(!rhs->leaf)
+			nodes = rhs->nodes;
+
+		parent   = rhs->parent;
+		state    = rhs->state;
+		position = rhs->position;
+		leaf     = rhs->leaf;
+
+		return (*this);
+	}
 
 	/* get node value */
 	NDTree const &operator[](const int i) const
@@ -126,67 +195,112 @@ public:
 		return stream << stringifyNodes(0, obj);
 	}
 
-	NDTree * getAdjacentNode(const std::array<orientation, Dimension> direction) const
+	const int size()
 	{
-		std::queue<std::array<orientation, Dimension>> stack; //holds our directions for going up and down the tree
+		return (*nodes).size();
+	}
 
-		std::array<orientation, Dimension> pointing_direction = direction; 
-		auto walk = [&](const uint position) {
-			bool up_flag = false;
+	TraversalHelper<Dimension> traverse(const std::array<orientation, Dimension> dir, const std::array<orientation, Dimension> cmp) const
+	{
+		TraversalHelper<Dimension> depth;
 
-			for(uint d=0; d < Dimension; ++d) {
-				if(pointing_direction[d] == CENTER) continue;
+		for(uint d=0; d < Dimension; ++d) {
+			switch(dir[d]) {
+				case CENTER:
+					depth.way[d] = CENTER;
+					goto cont;
 
-				if(pointing_direction[d] == LEFT) {
-					if(node_orientation_table[position][d] == LEFT) {
-						up_flag = true;
-						pointing_direction[d] = RIGHT;
+				case LEFT:
+					if(cmp[d] == RIGHT) {
+						depth.way[d] = LEFT;
+					} else {
+						depth.way[d] = RIGHT;
+						depth.deeper = true;
 					}
-				} else {
-					if(node_orientation_table[position][d] == RIGHT) {
-						up_flag = true;
-						pointing_direction[d] = LEFT;
+					break;
+
+				case RIGHT:
+					if(cmp[d] == LEFT) {
+						depth.way[d] = RIGHT;
+					} else {
+						depth.way[d] = LEFT;
+						depth.deeper = true;
 					}
-				}
+					break;
 			}
 
-			std::array<orientation, Dimension> results;
-			for(uint i=0; i<pointing_direction.size(); ++i) {
-				const auto m = pointing_direction[i] + node_orientation_table[position][i];
-				results[i] = static_cast<orientation>(m == CENTER ? node_orientation_table[position][i] : m);
-			}
-			stack.push(results);
-			std::cout << results << std::endl;
-
-			return up_flag;
-		};
-
-		NDTree<Dimension, StateType> * treePointer = const_cast<NDTree *>(this);
-		do {
-			if(!walk(treePointer->position)) break;
-			pointing_direction = stack.back();
-			
-			//if parent is nullptr we need to "expand" upwards by creating a new NDTree for the parent,
-			if(treePointer->parent == nullptr)
-				treePointer->reverseBirth(position);
-			
-			treePointer = treePointer->parent;
-		} while(true);
-
-		//walk back down to our node
-		while(!stack.empty()) {
-			std::cout << treePointer->position << std::endl;
-			if(treePointer->leaf)
-				return treePointer;
-
-			auto m = stack.back();
-			//ugly, fix with std::negate overload for orientation when available
-			std::transform(m.begin(), m.end(), m.begin(), [](orientation o) { return static_cast<orientation>(static_cast<signed int>(o)); });
-			treePointer = (*(*treePointer).nodes)[getPositionFromOrientation<Dimension>(m)];
-			stack.pop();
+			cont:
+				continue;
 		}
 
-		return treePointer;
+		return depth;
+	}
+
+	std::array<orientation, Dimension> uncenter(const std::array<orientation, Dimension> dir, const std::array<orientation, Dimension> cmp) const
+	{
+		std::array<orientation, Dimension> way;
+
+		for(uint d=0; d < Dimension; ++d)
+			way[d] = (dir[d] == CENTER) ? cmp[d] : dir[d];
+		
+		return way;
+	}
+
+	NDTree * getAdjacentNode(const std::array<orientation, Dimension> direction) const
+	{
+		//our first traversal pass
+		TraversalHelper<Dimension> pass = traverse(direction, node_orientation_table[position]);
+
+		//if we are lucky the direction results in one of our siblings
+		if(!pass.deeper)
+			return (*(*parent).nodes)[getPositionFromOrientation<Dimension>(pass.way)];
+
+
+		std::vector<std::array<orientation, Dimension>> up;   //holds our directions for going up the tree
+		std::vector<std::array<orientation, Dimension>> down; //holds our directions for going down
+		NDTree<Dimension, StateType> * tp = parent;           //tp is our tree pointer
+		up.push_back(pass.way); //initialize with our first pass we did above
+
+		while(true) {
+			//continue going up as long as it takes, baby
+			pass = traverse(up.back(), node_orientation_table[tp->position]);
+			std::cout << pass.way << " :: " << uncenter(pass.way, node_orientation_table[tp->position]) << std::endl;
+
+			if(!pass.deeper) //we've reached necessary top
+				break;
+			up.push_back(pass.way);
+			
+			//if we don't have any parent we must explode upwards
+			if(tp->parent == nullptr)
+				tp->reverseBirth(tp->position);
+			
+			tp = tp->parent;
+		}
+
+		//line break ups and downs
+		std::cout << std::endl;
+
+		//traverse upwards combining the matrices to get our actual position in cube
+		tp = const_cast<NDTree *>(this);
+		for(int i=1; i<up.size(); i++) {
+			std::cout << up[i] << " :: " << uncenter(up[i], node_orientation_table[tp->position]) << std::endl;
+			down.push_back(uncenter(up[i], node_orientation_table[tp->parent->position]));
+			tp = tp->parent;
+		}
+
+		//make our way back down (tp is still set to upmost parent from above)
+		for(const auto & i : down) {
+			int pos = 0; //we need to get the position from an orientation list
+
+			for(int d=0; d<i.size(); d++)
+				if(i[d] == RIGHT)
+					pos += cexp::pow(2, d); //consider left as 0 and right as 1 << dimension
+
+			//grab the child of treepointer via position we just calculated
+			tp = (*(*tp).nodes)[pos];
+		}
+
+		return tp;
 	}
 
 	void insertNode(const std::array<double, Dimension> pos, const uint depth_precision)
@@ -238,7 +352,8 @@ public:
 		assert(parent == nullptr);
 		parent = new NDTree<Dimension, StateType>();
 		parent->subdivide();
-		(*(*parent).nodes)[position] = this;
+		//(*(*parent).nodes)[position] = this;
+		(*parent)[position] = this;
 		parent->leaf = false;
 	}
 

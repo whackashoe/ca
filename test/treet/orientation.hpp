@@ -21,6 +21,11 @@ std::ostream& operator<< (std::ostream &stream, const orientation &obj)
  * 
  ****************************************/
 
+ orientation flip(const orientation o)
+ {
+ 	return static_cast<orientation>(static_cast<signed int>(o)*-1);
+ }
+
 template <uint Dimension>
 std::array<orientation, Dimension> getOrientationFromPosition(const uint position)
 {
