@@ -208,7 +208,7 @@ public:
 			switch(dir[d]) {
 				case CENTER:
 					depth.way[d] = CENTER;
-					goto cont;
+					break;
 
 				case LEFT:
 					if(cmp[d] == RIGHT) {
@@ -228,9 +228,6 @@ public:
 					}
 					break;
 			}
-
-			cont:
-				continue;
 		}
 
 		return depth;
