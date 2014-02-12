@@ -245,49 +245,49 @@ public:
 
 	NDTree * getAdjacentNode(const std::array<orientation, Dimension> direction) const
 	{
-		//our first traversal pass
+		//our first traversal pass, `pass` will hold our previous upwards traversal from here on out
 		TraversalHelper<Dimension> pass = traverse(direction, node_orientation_table[position]);
 
-		//if we are lucky the direction results in one of our siblings
+		//if we are lucky the direction results in one of our siblings and we can return immediately
 		if(!pass.deeper)
 			return (*(*parent).nodes)[getPositionFromOrientation<Dimension>(pass.way)];
 
-
-		std::vector<std::array<orientation, Dimension>> up;   //holds our directions for going up the tree
 		std::vector<std::array<orientation, Dimension>> down; //holds our directions for going down
 		NDTree<Dimension, StateType> * tp = parent;           //tp is our tree pointer
-		up.push_back(pass.way); //initialize with our first pass we did above
+		//pos holds the position we are at pre ->parent - ing, so we can go back down one level quickly
+		int pos = 0;
 
+		//continue going up as long as it takes, baby
 		while(true) {
-			//continue going up as long as it takes, baby
-			pass = traverse(up.back(), node_orientation_table[tp->position]);
+			//we pass "pass".way into traverse each time, this is equivalent to a stack where all old elements are deleted (or ignored)
+			pass = traverse(pass.way, node_orientation_table[tp->position]);
 			std::cout << pass.way << " :: " << uncenter(pass.way, node_orientation_table[tp->position]) << std::endl;
 
-			if(!pass.deeper) //we've reached necessary top
+			//we've reached necessary top
+			if(!pass.deeper)
 				break;
-			up.push_back(pass.way);
+
+			//combine the matrices to get our actual position in cube
+			down.push_back(uncenter(pass.way, node_orientation_table[tp->position]));
 			
 			//if we don't have any parent we must explode upwards
 			if(tp->parent == nullptr)
 				tp->reverseBirth(tp->position);
 			
+			//save our old position in parent list so we can move back down *
+			pos = tp->position;
+
+			//and continue further up
 			tp = tp->parent;
 		}
 
-		//line break ups and downs
-		std::cout << std::endl;
-
-		//traverse upwards combining the matrices to get our actual position in cube
-		tp = const_cast<NDTree *>(this);
-		for(int i=1; i<up.size(); i++) {
-			std::cout << up[i] << " :: " << uncenter(up[i], node_orientation_table[tp->position]) << std::endl;
-			down.push_back(uncenter(up[i], node_orientation_table[tp->parent->position]));
-			tp = tp->parent;
-		}
+		//*right here, this is necessary as we go up to the next parent at the end of the loop above
+		tp = (*(*tp).nodes)[pos];
 
 		//make our way back down (tp is still set to upmost parent from above)
 		for(const auto & i : down) {
-			int pos = 0; //we need to get the position from an orientation list
+			std::cout << i << std::endl;
+			pos = 0; //we need to get the position from an orientation list
 
 			for(int d=0; d<i.size(); d++)
 				if(i[d] == RIGHT)
