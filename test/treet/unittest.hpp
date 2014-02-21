@@ -72,6 +72,7 @@ const lest::test specification[] =
 int run_unit_tests()
 {
 	//return lest::run( specification );
+	return 0;
 }
 
 #endif

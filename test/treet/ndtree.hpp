@@ -48,7 +48,7 @@ public:
 	std::vector<NDTree*> getParents(const NDTree * node) const
 	{
 		std::vector<NDTree *> ret;
-		NDTree * traverser = parent;
+		NDTree * traverser { parent };
 
 		while(traverser != nullptr) {
 			ret.push_back(traverser);
@@ -70,12 +70,14 @@ public:
 	NDTree() : 
 		nodes(new std::array<NDTree*, cexp::pow(2, Dimension)>), 
 		parent(nullptr),
+		state(StateType()),
 		position(0),
 		leaf(true) {}
 
 	NDTree(NDTree * parent_, const uint position_) :
 		nodes(new std::array<NDTree*, cexp::pow(2, Dimension)>),
 		parent(parent_),
+		state(StateType()),
 		position(position_),
 		leaf(true) {}
 	
@@ -177,7 +179,7 @@ public:
 			std::stringstream m;
 
 			if(!obj.leaf)
-				for(int i=0; i<cexp::pow(2, Dimension); ++i)
+				for(int i { 0 }; i<cexp::pow(2, Dimension); ++i)
 					m << stringifyNodes(n+1, obj[i]);
 			else
 				m << static_cast<int>(obj.state);
@@ -200,11 +202,25 @@ public:
 		return (*nodes).size();
 	}
 
+	std::pair<orientation, bool> checkImpossible(orientation dir, orientation cmp) const
+	{
+		switch(dir) {
+			case CENTER:
+				return std::make_pair(CENTER, false);
+
+			case LEFT:
+				return std::make_pair(cmp == RIGHT ? LEFT : RIGHT, cmp != RIGHT);
+				
+			case RIGHT:
+				return std::make_pair(cmp == LEFT ? RIGHT : LEFT, cmp != LEFT);
+		}
+	}
+
 	TraversalHelper<Dimension> traverse(const std::array<orientation, Dimension> dir, const std::array<orientation, Dimension> cmp) const
 	{
 		TraversalHelper<Dimension> depth;
 
-		for(uint d=0; d < Dimension; ++d) {
+		for(uint d { 0 }; d < Dimension; ++d) {
 			switch(dir[d]) {
 				case CENTER:
 					depth.way[d] = CENTER;
@@ -237,10 +253,15 @@ public:
 	{
 		std::array<orientation, Dimension> way;
 
-		for(uint d=0; d < Dimension; ++d)
+		for(uint d { 0 }; d < Dimension; ++d)
 			way[d] = (dir[d] == CENTER) ? cmp[d] : dir[d];
 		
 		return way;
+	}
+
+	constexpr std::array<orientation, Dimension> uncenter(const orientation dir, const orientation cmp) const
+	{
+		return (dir != CENTER) ? dir : cmp;
 	}
 
 	NDTree * getAdjacentNode(const std::array<orientation, Dimension> direction) const
@@ -250,47 +271,50 @@ public:
 
 		//if we are lucky the direction results in one of our siblings and we can return immediately
 		if(!pass.deeper)
-			return (*(*parent).nodes)[getPositionFromOrientation<Dimension>(pass.way)];
+			return (*(*parent).nodes)[getPositionFromOrientation<Dimension>(uncenter(pass.way, node_orientation_table[position]))];
+
 
 		std::vector<std::array<orientation, Dimension>> down; //holds our directions for going down
-		NDTree<Dimension, StateType> * tp = parent;           //tp is our tree pointer
+		NDTree<Dimension, StateType> * tp { parent };         //tp is our tree pointer
 		//pos holds the position we are at pre ->parent - ing, so we can go back down one level quickly
-		int pos = 0;
+		int pos { 0 };
 
 		//continue going up as long as it takes, baby
 		while(true) {
 			//we pass "pass".way into traverse each time, this is equivalent to a stack where all old elements are deleted (or ignored)
 			pass = traverse(pass.way, node_orientation_table[tp->position]);
-			std::cout << pass.way << " :: " << uncenter(pass.way, node_orientation_table[tp->position]) << std::endl;
+			//std::cout << pass.way << " :: " << uncenter(pass.way, node_orientation_table[tp->position]) << std::endl;
 
 			//we've reached necessary top
 			if(!pass.deeper)
 				break;
-
-			//combine the matrices to get our actual position in cube
-			down.push_back(uncenter(pass.way, node_orientation_table[tp->position]));
 			
 			//if we don't have any parent we must explode upwards
-			if(tp->parent == nullptr)
+			if(tp->parent == nullptr) {
+				//std::cout << "parent";
 				tp->reverseBirth(tp->position);
+			}
 			
-			//save our old position in parent list so we can move back down *
+			//combine the matrices to get our actual position in cube
+			down.push_back(uncenter(pass.way, node_orientation_table[tp->parent->position]));
+
+			//save our old position in parent list so we can move back down ***
 			pos = tp->position;
 
 			//and continue further up
 			tp = tp->parent;
 		}
 
-		//*right here, this is necessary as we go up to the next parent at the end of the loop above
+		//***right here, this is necessary as we go up to the next parent at the end of the loop above
 		tp = (*(*tp).nodes)[pos];
 
 		//make our way back down (tp is still set to upmost parent from above)
 		for(const auto & i : down) {
-			std::cout << i << std::endl;
+			//std::cout << i << std::endl;
 			pos = 0; //we need to get the position from an orientation list
-
-			for(int d=0; d<i.size(); d++)
-				if(i[d] == RIGHT)
+			std::cout << i.size() << std::endl;
+			for(int d { 0 }; d<i.size(); d++)
+				if(i[d] == LEFT)
 					pos += cexp::pow(2, d); //consider left as 0 and right as 1 << dimension
 
 			//grab the child of treepointer via position we just calculated
@@ -304,14 +328,14 @@ public:
 	{
 		NDTree * node { this };
 
-		for(uint i=0; i<depth_precision; ++i) {
+		for(uint i { 0 }; i<depth_precision; ++i) {
 			if(node->leaf)
 				node->subdivide();
 
-			const double half_dist = 1.0 / cexp::pow(2, i+1);
-			uint cell_pos = 0;
+			constexpr double half_dist { 1.0 / cexp::pow(2, i+1) };
+			uint cell_pos { 0 };
 
-			for(uint j=0; j<Dimension; ++j)
+			for(uint j { 0 }; j<Dimension; ++j)
 				if(pos[j] > half_dist) {
 					pos[j] -= half_dist;
 					cell_pos += cexp::pow(2, j);
@@ -331,7 +355,7 @@ public:
 	{
 		if(!leaf) return;
 
-		for(uint i=0; i < cexp::pow(2, Dimension); ++i)
+		for(uint i { 0 }; i < cexp::pow(2, Dimension); ++i)
 			(*nodes)[i] = new NDTree(this, i);
 
 		leaf = false;
@@ -344,8 +368,9 @@ public:
 		leaf = true;
 	}
 
-	void reverseBirth(uint position)
+	void reverseBirth(const uint position)
 	{
+		//TODO:: position needs to be flipped (e.g. left->right, right->left)
 		assert(parent == nullptr);
 		parent = new NDTree<Dimension, StateType>();
 		parent->subdivide();
@@ -387,7 +412,7 @@ std::array<uint, Dimension+1> generatePowTable()
 {	/*calculate orientation (left/right) of each node numbered sequentially in an n-dimensional cube*/
 	std::array<uint, Dimension+1> r;
 
-	for(uint i=0; i < r.size(); ++i)
+	for(uint i { 0 }; i < r.size(); ++i)
 		r[i] = cexp::pow(Power, i);
 
 	return r;
@@ -398,7 +423,7 @@ std::array<std::array<orientation, Dimension>, cexp::pow(2, Dimension)> generate
 {	/*calculate orientation (left/right) of each node numbered sequentially in an n-dimensional cube*/
 	std::array<std::array<orientation, Dimension>, cexp::pow(2, Dimension)> r;
 	
-	for(uint i=0; i < r.size(); ++i)
+	for(uint i { 0 }; i < r.size(); ++i)
 		r[i] = getOrientationFromPosition<Dimension>(i);
 
 	return r;
@@ -409,7 +434,7 @@ std::array<uint, cexp::pow(2, Dimension)> generateNodePositionTable()
 {	/*calculates the position / index of each node based on its orientation*/
 	std::array<uint, cexp::pow(2, Dimension)> r;
 	
-	for(uint i=0; i < r.size(); ++i)
+	for(uint i { 0 }; i < r.size(); ++i)
 		r[i] = NDTree<Dimension, StateType>::getPositionFromOrientation<Dimension>(NDTree<Dimension, StateType>::node_orientation_table[i]);
 
 	return r;
@@ -423,9 +448,9 @@ std::array<std::array<orientation, Dimension>, cexp::pow(3, Dimension)> generate
 
 	NDTree<Dimension, StateType>::moore_pow_table = generatePowTable<Dimension, 3>();
 
-	for(uint i=0; i < r.size(); ++i) {
-		for(uint j=0; j < Dimension; ++j) {
-			const int moore_mod = i % NDTree<Dimension, StateType>::moore_pow_table[j+1];
+	for(uint i { 0 }; i < r.size(); ++i) {
+		for(uint j { 0 }; j < Dimension; ++j) {
+			const uint moore_mod { i % NDTree<Dimension, StateType>::moore_pow_table[j+1] };
 			if(moore_mod < NDTree<Dimension, StateType>::moore_pow_table[j+1]-(NDTree<Dimension, StateType>::moore_pow_table[j]*2))
 				r[r.size()-1-i][j] = RIGHT;
 			else if(moore_mod < NDTree<Dimension, StateType>::moore_pow_table[j+1]-NDTree<Dimension, StateType>::moore_pow_table[j])
@@ -444,12 +469,12 @@ std::array<std::array<TraversalDirection<Dimension>, cexp::pow(3, Dimension)>, c
 	 and calculating the offset including if we need to go up one level(parent) to access adjacent node*/
 	std::array<std::array<TraversalDirection<Dimension>, cexp::pow(3, Dimension)>, cexp::pow(2, Dimension)> r;
 
-	for(uint c=0; c < r.size(); ++c) { //cube nodes			
-		for(uint m=0; m < r[c].size(); ++m) { //moore-nodes
+	for(uint c { 0 }; c < r.size(); ++c) { //cube nodes			
+		for(uint m { 0 }; m < r[c].size(); ++m) { //moore-nodes
 
 			TraversalDirection<Dimension> tdir;
 
-			for(uint d=0; d < Dimension; ++d) {
+			for(uint d { 0 }; d < Dimension; ++d) {
 				if(NDTree<Dimension, StateType>::node_orientation_table[c][d] == LEFT) {
 					switch(NDTree<Dimension, StateType>::moore_offset_table[m][d]) {
 						case LEFT:
